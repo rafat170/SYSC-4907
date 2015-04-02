@@ -1,0 +1,444 @@
+# Software code that checks two sensors for distance and outputs according duty cycle
+
+import wave
+import time
+import serial
+import string
+import pygame
+import subprocess
+import matplotlib
+import math
+import RPi.GPIO as GPIO
+
+count = 0;	# number of data points taken during collection interval
+max = 250;	# maximum distance for motor vibration
+max_angle_dist = 155; #distance to floor/hypothenuse -->Ramya
+max_threshold = 10; # difference of 10 cm to detect loos or gain of height
+dec = 62.5;	# decremental value for duty cycle ranges
+Av = []
+Ac = []
+startFlag1 = 0; 	# starts the motor#1 if equal to 1 and stops the motor if equal to 0
+startFlag2 = 0; 	# starts the motor#2 if equal to 1 and stops the motor if equal to 0
+startFlag3 = 0; 	# starts the motor#3 if equal to 1 and stops the motor if equal to 0
+startFlag4 = 0; 	# starts the motor#4 if equal to 1 and stops the motor if equal to 0
+startFlag5 = 0; 	# starts the motor#5 if equal to 1 and stops the motor if equal to 0
+
+#GPIO setup for the sensor
+#Setting GPIO Pins as output
+GPIO.setmode(GPIO.BOARD)
+
+GPIO.setwarnings(False)
+
+#################Motor #1##################################################
+GPIO.setup(11, GPIO.OUT) # GPIO 11 is set to be an output.
+GPIO.output(11, GPIO.LOW) # GPIO 11 is set to be off.
+GPIO.setup(19, GPIO.OUT) # GPIO 19 is set to be an output.
+pwm = GPIO.PWM(19, 10)   # pwm is an object to control the pins
+                         # 19 is the GPIO pin number.
+                         # 10 is the frequency in Hz.
+
+#################Motor #2##################################################
+GPIO.setup(13, GPIO.OUT) # GPIO 13 is set to be an output.
+GPIO.output(13, GPIO.LOW) # GPIO 13 is set to be off.
+GPIO.setup(21, GPIO.OUT) # GPIO 21 is set to be an output.
+pwm2 = GPIO.PWM(21, 10)   # pwm is an object to control the pins
+                         # 21 is the GPIO pin number.
+                         # 10 is the frequency in Hz.
+
+#################Motor #3##################################################
+GPIO.setup(15, GPIO.OUT) # GPIO 15 is set to be an output.
+GPIO.output(15, GPIO.LOW) # GPIO 15 is set to be off.
+GPIO.setup(23, GPIO.OUT) # GPIO 23 is set to be an output.
+pwm3 = GPIO.PWM(23, 10)   # pwm is an object to control the pins
+                         # 23 is the GPIO pin number.
+                         # 10 is the frequency in Hz.
+
+#################Motor #4##################################################
+GPIO.setup(16, GPIO.OUT) # GPIO 16 is set to be an output.
+GPIO.output(16, GPIO.LOW) # GPIO 16 is set to be off.
+GPIO.setup(24, GPIO.OUT) # GPIO 24 is set to be an output.
+pwm4 = GPIO.PWM(24, 10)   # pwm is an object to control the pins
+                         # 24 is the GPIO pin number.
+                         # 10 is the frequency in Hz.
+
+#################Motor #5##################################################
+GPIO.setup(18, GPIO.OUT) # GPIO 18 is set to be an output.
+GPIO.output(18, GPIO.LOW) # GPIO 18 is set to be off.
+GPIO.setup(26, GPIO.OUT) # GPIO 26 is set to be an output.
+pwm5 = GPIO.PWM(26, 10)   # pwm is an object to control the pins
+                         # 26 is the GPIO pin number.
+                         # 10 is the frequency in Hz.
+
+################# SWITCH ##################################################
+GPIO.setup(7, GPIO.IN) # GPIO 7 is set to be an input.
+#switch check
+input = GPIO.input(7)
+print 'switch', input
+
+
+while (count<1000): 
+    print count
+ 
+    #Opening the serial ports to read the ultrasonic sensors
+    serialPort=serial.Serial("/dev/ttyAMA0", 9600, timeout=2, stopbits=1, parity='N')
+    if serialPort.isOpen()== False:
+        serialPort.open()       
+    else: 
+	pass
+    
+    serialPort.flushInput()
+
+    
+
+#################Sensor #1##################################################
+
+    #Reading data from sensor #1
+    GPIO.output(11, GPIO.HIGH) # GPIO 11 is set to be on.
+    CV=serialPort.read(5)
+    GPIO.output(11, GPIO.LOW) # GPIO 11 is set to be off.
+    CV = int(CV.replace("R", "") )
+    serialPort.flushInput()
+    while (serialPort.read(1) != ""):
+	serialPort.flushInput()
+    print 'sensor#1', CV
+
+    #setting up the duty cycle ranges
+
+    #Range 0: greater than 250cm, sensor off
+    if(CV>max):
+	pwm.stop()
+	startFlag1=0;	#motor is off	
+	print ("Distance greater than 250 cm. Sensor off")
+	time.sleep(0.1)
+	
+    #Range 1: 250 cm to 187.5 cm at 30% duty cycle
+    elif ( (CV <=(max)) and (CV >(max - dec)) ):
+	print ("250 cm to 187.5 cm at 30% duty cycle") 
+
+	#start motor procedure
+	if ( (count==0) or (startFlag1==0) ):
+		pwm.start(30)            # duty cycle of 30%
+		startFlag1=1 		# motor is now on
+	else:
+		pwm.ChangeDutyCycle(30)   # Duty cycle is now changed to 30%
+                         	 
+    	time.sleep(0.1)
+
+    #Range 2: 187.5 cm to 125 cm at 53.3% duty cycle
+    elif ( (CV <=(max - dec)) and (CV >(max - 2*dec)) ):
+	print ("187.5 cm to 125 cm at 53.3% duty cycle")
+
+	if ((count==0) or (startFlag1==0)):
+		pwm.start(53.3)         # duty cycle of 53.3%
+		startFlag1=1		# motor is now on
+
+	else:
+		pwm.ChangeDutyCycle(53.3)   # Duty cycle is now changed 53.3%
+
+    	time.sleep(0.1)
+
+    #range 3: 125 cm to 62.5 cm at 76.6% duty cycle
+    elif ( (CV <=(max - 2*dec)) and (CV >(max - 3*dec)) ):
+	print ("125 cm to 62.5 cm at 76.6% duty cycle")
+
+	if ((count==0) or (startFlag1==0)):
+		pwm.start(76.6)         # duty cycle of 76.6%
+		startFlag1=1		# motor is now on
+
+	else:
+		pwm.ChangeDutyCycle(76.6)   # Duty cycle is now changed 76.6%
+
+    	time.sleep(0.1)
+
+    #range 4: less than 62.5 cm at 100% duty cycle
+    elif ( CV <=(dec) ):
+	print ("less than 62.5 cm at 100% duty cycle")
+
+	if ((count==0) or (startFlag1==0)):
+		pwm.start(100)            # duty cycle of 100%
+		startFlag1=1		# motor in now on
+
+	else:
+		pwm.ChangeDutyCycle(100)   # Duty cycle is now changed 100%
+
+    	time.sleep(0.1)
+
+#################Sensor #2 #################################################
+
+    #Reading data from sensor #2
+    GPIO.output(13, GPIO.HIGH) # GPIO 13 is set to be on.
+    CV2=serialPort.read(5)
+    GPIO.output(13, GPIO.LOW) # GPIO 13 is set to be off.
+    CV2 = int(CV2.replace("R", "") )
+    serialPort.flushInput()
+    while (serialPort.read(1) != ""):
+	serialPort.flushInput()
+    print 'sensor#2', CV2
+
+    #setting up the duty cycle ranges
+
+    #Range 0: greater than 250cm, sensor off
+    if(CV2>max):
+	pwm2.stop()
+	startFlag2=0;	#motor is off	
+	print ("Distance greater than 250 cm. Sensor off")
+	time.sleep(0.1)
+	
+    #Range 1: 250 cm to 187.5 cm at 30% duty cycle
+    elif ( (CV2 <=(max)) and (CV2 >(max - dec)) ):
+	print ("250 cm to 187.5 cm at 30% duty cycle")
+
+	#start motor procedure
+	if ( (count==0) or (startFlag2==0) ):
+		pwm2.start(30)            # duty cycle of 30%
+		startFlag2=1 		# motor is now on
+	else:
+		pwm2.ChangeDutyCycle(30)   # Duty cycle is now changed to 30%
+                         	 
+    	time.sleep(0.1)
+
+    #Range 2: 187.5 cm to 125 cm at 53.3% duty cycle
+    elif ( (CV2 <=(max - dec)) and (CV2 >(max - 2*dec)) ):
+	print ("187.5 cm to 125 cm at 53.3% duty cycle")
+
+	if ((count==0) or (startFlag2==0)):
+		pwm2.start(53.3)         # duty cycle of 53.3%
+		startFlag2=1		# motor is now on
+
+	else:
+		pwm2.ChangeDutyCycle(53.3)   # Duty cycle is now changed 53.3%
+
+    	time.sleep(0.1)
+
+    #range 3: 125 cm to 62.5 cm at 76.6% duty cycle
+    elif ( (CV2 <=(max - 2*dec)) and (CV2 >(max - 3*dec)) ):
+	print ("125 cm to 62.5 cm at 76.6% duty cycle")
+
+	if ((count==0) or (startFlag2==0)):
+		pwm2.start(76.6)         # duty cycle of 76.6%
+		startFlag2=1		# motor is now on
+
+	else:
+		pwm2.ChangeDutyCycle(76.6)   # Duty cycle is now changed 76.6%
+
+    	time.sleep(0.1)
+
+    #range 4: less than 62.5 cm at 100% duty cycle
+    elif ( CV2 <=(dec) ):
+	print ("less than 62.5 cm at 100% duty cycle")
+
+	if ((count==0) or (startFlag2==0)):
+		pwm2.start(100)            # duty cycle of 100%
+		startFlag2=1		# motor in now on
+
+	else:
+		pwm2.ChangeDutyCycle(100)   # Duty cycle is now changed 100%
+
+    	time.sleep(0.1)
+
+#################Sensor #3##################################################
+
+    #Reading data from sensor #1
+    GPIO.output(15, GPIO.HIGH) # GPIO 15 is set to be on.
+    CV3=serialPort.read(5)
+    GPIO.output(15, GPIO.LOW) # GPIO 15 is set to be off.
+    CV3 = int(CV3.replace("R", "") )
+    serialPort.flushInput()
+    while (serialPort.read(1) != ""):
+	serialPort.flushInput()
+    print 'sensor#3', CV3
+
+    #setting up the duty cycle ranges
+
+    #Range 0: greater than 250cm, sensor off
+    if(CV3>max):
+	pwm3.stop()
+	startFlag3=0;	#motor is off	
+	print ("Distance greater than 250 cm. Sensor off")
+	time.sleep(0.1)
+	
+    #Range 1: 250 cm to 187.5 cm at 30% duty cycle
+    elif ( (CV3 <=(max)) and (CV3 >(max - dec)) ):
+	print ("250 cm to 187.5 cm at 30% duty cycle")
+
+	#start motor procedure
+	if ( (count==0) or (startFlag3==0) ):
+		pwm3.start(30)            # duty cycle of 30%
+		startFlag3=1 		# motor is now on
+	else:
+		pwm3.ChangeDutyCycle(30)   # Duty cycle is now changed to 30%
+                         	 
+    	time.sleep(0.1)
+
+    #Range 2: 187.5 cm to 125 cm at 53.3% duty cycle
+    elif ( (CV3 <=(max - dec)) and (CV3 >(max - 2*dec)) ):
+	print ("187.5 cm to 125 cm at 53.3% duty cycle")
+
+	if ((count==0) or (startFlag3==0)):
+		pwm3.start(53.3)         # duty cycle of 53.3%
+		startFlag3=1		# motor is now on
+
+	else:
+		pwm3.ChangeDutyCycle(53.3)   # Duty cycle is now changed 53.3%
+
+    	time.sleep(0.1)
+
+    #range 3: 125 cm to 62.5 cm at 76.6% duty cycle
+    elif ( (CV3 <=(max - 2*dec)) and (CV3 >(max - 3*dec)) ):
+	print ("125 cm to 62.5 cm at 76.6% duty cycle")
+
+	if ((count==0) or (startFlag3==0)):
+		pwm3.start(76.6)         # duty cycle of 76.6%
+		startFlag3=1		# motor is now on
+
+	else:
+		pwm3.ChangeDutyCycle(76.6)   # Duty cycle is now changed 76.6%
+
+    	time.sleep(0.1)
+
+    #range 4: less than 62.5 cm at 100% duty cycle
+    elif ( CV3 <=(dec) ):
+	print ("less than 62.5 cm at 100% duty cycle")
+
+	if ((count==0) or (startFlag3==0)):
+		pwm3.start(100)            # duty cycle of 100%
+		startFlag3=1		# motor in now on
+
+	else:
+		pwm3.ChangeDutyCycle(100)   # Duty cycle is now changed 100%
+
+    	time.sleep(0.1)
+
+#################Sensor #4##################################################
+
+    #Reading data from sensor #1
+    GPIO.output(16, GPIO.HIGH) # GPIO 16 is set to be on.
+    CV4=serialPort.read(5)
+    GPIO.output(16, GPIO.LOW) # GPIO 16 is set to be off.
+    CV4 = int(CV4.replace("R", "") )
+    serialPort.flushInput()
+    while (serialPort.read(1) != ""):
+	serialPort.flushInput()
+    print 'sensor#4', CV4
+
+    #setting up the duty cycle ranges
+
+    #Range 0: greater than 250cm, sensor off
+    if(CV4>max):
+	pwm4.stop()
+	startFlag4=0;	#motor is off	
+	print ("Distance greater than 250 cm. Sensor off")
+	time.sleep(0.1)
+	
+    #Range 1: 250 cm to 187.5 cm at 30% duty cycle
+    elif ( (CV4 <=(max)) and (CV4 >(max - dec)) ):
+	print ("250 cm to 187.5 cm at 30% duty cycle")
+
+	#start motor procedure
+	if ( (count==0) or (startFlag4==0) ):
+		pwm4.start(30)            # duty cycle of 30%
+		startFlag4=1 		# motor is now on
+	else:
+		pwm4.ChangeDutyCycle(30)   # Duty cycle is now changed to 30%
+                         	 
+    	time.sleep(0.1)
+
+    #Range 2: 187.5 cm to 125 cm at 53.3% duty cycle
+    elif ( (CV4 <=(max - dec)) and (CV4 >(max - 2*dec)) ):
+	print ("187.5 cm to 125 cm at 53.3% duty cycle")
+
+	if ((count==0) or (startFlag4==0)):
+		pwm4.start(53.3)         # duty cycle of 53.3%
+		startFlag4=1		# motor is now on
+
+	else:
+		pwm4.ChangeDutyCycle(53.3)   # Duty cycle is now changed 53.3%
+
+    	time.sleep(0.1)
+
+    #range 3: 125 cm to 62.5 cm at 76.6% duty cycle
+    elif ( (CV4 <=(max - 2*dec)) and (CV4 >(max - 3*dec)) ):
+	print ("125 cm to 62.5 cm at 76.6% duty cycle")
+
+	if ((count==0) or (startFlag4==0)):
+		pwm4.start(76.6)         # duty cycle of 76.6%
+		startFlag4=1		# motor is now on
+
+	else:
+		pwm4.ChangeDutyCycle(76.6)   # Duty cycle is now changed 76.6%
+
+    	time.sleep(0.1)
+
+    #range 4: less than 62.5 cm at 100% duty cycle
+    elif ( CV4 <=(dec) ):
+	print ("less than 62.5 cm at 100% duty cycle")
+
+	if ((count==0) or (startFlag4==0)):
+		pwm4.start(100)            # duty cycle of 100%
+		startFlag4=1		# motor in now on
+
+	else:
+		pwm4.ChangeDutyCycle(100)   # Duty cycle is now changed 100%
+
+    	time.sleep(0.1)
+
+#################Sensor #5##################################################
+
+    #Reading data from sensor #1
+    GPIO.output(18, GPIO.HIGH) # GPIO 18 is set to be on.
+    CV5=serialPort.read(5)
+    GPIO.output(18, GPIO.LOW) # GPIO 18 is set to be off.
+    CV5 = int(CV5.replace("R", "") )
+    serialPort.flushInput()
+    while (serialPort.read(1) != ""):
+	serialPort.flushInput()
+    print 'sensor#5', CV5
+
+    #setting up the duty cycle ranges
+
+    #Range 1: distance is equal to maximum/hypothenue; solid floor level detected; sensor off
+    if((math.fabs(CV5-max_angle_dist) <= max_threshold) or (CV5 == 765)):
+	pwm5.stop()            # turn off motor
+	startFlag5=0 		# motor is off
+	print ("Solid floor detected")
+	time.sleep(0.1)
+
+    #range 2: The Difference in height is +/-10cm i.e. gain/loss of height
+    elif ((math.fabs(CV5-max_angle_dist) > max_threshold) and (CV5 <= 300) ):
+	print("object detected or finite hole")
+
+	if ((count==0) or (startFlag5==0)):	#Starting Motor at 100% Duty Cycle
+		pwm5.start(100)            # duty cycle of 100%
+		startFlag5=1		# motor in now on
+	
+	else:
+		pwm5.ChangeDutyCycle(100)   # Duty cycle is now changed 100%
+	
+    	time.sleep(0.1)
+
+    #range 3: Signal lost/ infinite hole
+    #elif (CV5 > 300 ):
+	#print("UH-OH!. Signal Lost. Go Ahead, its your funeral")
+
+	#if ((count==0) or (startFlag5==0)):	#Starting Motor at 100% Duty Cycle
+		#pwm5.start(100)            # duty cycle of 100%
+		#startFlag5=1		# motor in now on
+
+	#else:
+		#pwm5.ChangeDutyCycle(100)   # Duty cycle is now changed 100%
+
+    	#time.sleep(0.1)
+    
+    Ac.append(count)
+    count = count +1
+
+    #switch check
+    input = GPIO.input(7)
+    print 'switch', input
+
+pwm.stop()                # Turn PWM off
+pwm2.stop()                # Turn PWM off
+pwm3.stop()                # Turn PWM off
+pwm4.stop()                # Turn PWM off
+pwm5.stop()                # Turn PWM off
+GPIO.cleanup()            # Always clean up at the end of programs.
